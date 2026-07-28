@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aika Hub | Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        aika: '#ec90fe', bgDark: '#0a0a0c', cardDark: '#131315', boxDark: '#1c1c1f'
+                    },
+                    fontFamily: { sans: ['Inter', 'sans-serif'] }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body { background-color: #0a0a0c; }
+        .spinner { border: 3px solid rgba(255,255,255,0.1); border-top-color: #ec90fe; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="text-white min-h-screen p-8">
+
+    <!-- Navigation -->
+    <nav class="max-w-5xl mx-auto flex justify-between items-center mb-16 border-b border-white/10 pb-6">
+        <a href="index.html" class="text-xl font-bold tracking-wider hover:opacity-80 transition">
+            AIKA <span class="text-aika">HUB</span>
+        </a>
+        <button onclick="logout()" class="text-sm font-semibold text-gray-400 hover:text-red-400 transition">Log out</button>
+    </nav>
+
+    <!-- Dashboard Content -->
+    <main class="max-w-5xl mx-auto">
+        
+        <!-- Loading State -->
+        <div id="loading" class="flex items-center gap-3 text-gray-400">
+            <div class="spinner"></div>
+            <p>Authenticating with Discord...</p>
+        </div>
+
+        <!-- Profile Loaded State (Hidden by default) -->
+        <div id="dashboard-content" class="hidden">
+            <h1 class="text-4xl font-extrabold mb-8">Welcome back, <span id="discord-username" class="text-aika">User</span></h1>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- User Profile Card -->
+                <div class="bg-cardDark border border-white/10 rounded-2xl p-6 flex flex-col items-center text-center">
+                    <img id="discord-avatar" src="" alt="Avatar" class="w-24 h-24 rounded-full border-4 border-boxDark shadow-lg mb-4">
+                    <h2 id="discord-globalname" class="text-xl font-bold text-white mb-1">Display Name</h2>
+                    <p class="text-xs text-gray-500 font-medium bg-boxDark px-3 py-1 rounded-md">Free Plan</p>
+                </div>
+
+                <!-- Your Script/Key Area -->
+                <div class="md:col-span-2 bg-cardDark border border-white/10 rounded-2xl p-6">
+                    <h3 class="text-lg font-bold mb-4">Your Access</h3>
+                    <div class="bg-boxDark rounded-xl p-4 border border-white/5 flex justify-between items-center mb-4">
+                        <div>
+                            <p class="text-xs text-gray-400 font-semibold mb-1">Current Key</p>
+                            <p class="font-mono text-sm">NO_KEY_GENERATED_YET</p>
+                        </div>
+                        <button class="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg text-sm font-bold transition">Generate</button>
+                    </div>
+                    <p class="text-sm text-gray-400">Need help? Make sure you have joined our <a href="#" class="text-aika hover:underline">Discord server</a> to bypass the key system.</p>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Discord Authentication Logic -->
+    <script>
+        window.onload = () => {
+            // 1. Grab the token from the URL hash
+            const fragment = new URLSearchParams(window.location.hash.slice(1));
+            const [accessToken, tokenType] = [fragment.get('access_token'), fragment.get('token_type')];
+
+            // 2. If no token is found, kick them back to the home page
+            if (!accessToken) {
+                window.location.href = 'index.html';
+                return;
+            }
+
+            // 3. Fetch the user's data from Discord's API
+            fetch('https://discord.com/api/users/@me', {
+                headers: {
+                    authorization: `${tokenType} ${accessToken}`,
+                },
+            })
+            .then(result => result.json())
+            .then(response => {
+                // 4. Extract data and update the HTML
+                const { username, global_name, id, avatar } = response;
+                
+                document.getElementById('discord-username').innerText = username;
+                document.getElementById('discord-globalname').innerText = global_name || username;
+                
+                // Construct the avatar URL (or use default if they don't have one)
+                const avatarUrl = avatar 
+                    ? `https://cdn.discordapp.com/avatars/${id}/${avatar}.png?size=256` 
+                    : `https://cdn.discordapp.com/embed/avatars/${id % 5}.png`;
+                document.getElementById('discord-avatar').src = avatarUrl;
+
+                // Hide loading spinner and show dashboard
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('dashboard-content').classList.remove('hidden');
+            })
+            .catch(console.error);
+        };
+
+        function logout() {
+            // Clear the URL hash and go home
+            window.history.replaceState(null, null, ' ');
+            window.location.href = 'index.html';
+        }
+    </script>
+</body>
+</html>
