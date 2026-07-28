@@ -76,25 +76,41 @@
     <!-- Discord Authentication Logic -->
     <script>
         window.onload = () => {
-            // 1. Grab the token from the URL hash
+            // 1. Check the URL hash first (fresh redirect from Discord OAuth)
             const fragment = new URLSearchParams(window.location.hash.slice(1));
-            const [accessToken, tokenType] = [fragment.get('access_token'), fragment.get('token_type')];
+            let accessToken = fragment.get('access_token');
+            let tokenType = fragment.get('token_type');
 
-            // 2. If no token is found, kick them back to the home page
+            if (accessToken) {
+                // Fresh login: save it so the site remembers you next time
+                localStorage.setItem('aika_access_token', accessToken);
+                localStorage.setItem('aika_token_type', tokenType);
+                // Clean the token out of the visible URL
+                window.history.replaceState(null, null, window.location.pathname);
+            } else {
+                // 2. No fresh token in the URL: fall back to a saved session
+                accessToken = localStorage.getItem('aika_access_token');
+                tokenType = localStorage.getItem('aika_token_type');
+            }
+
+            // 3. If there's still no token anywhere, send them to log in
             if (!accessToken) {
                 window.location.href = 'index.html';
                 return;
             }
 
-            // 3. Fetch the user's data from Discord's API
+            // 4. Fetch the user's data from Discord's API
             fetch('https://discord.com/api/users/@me', {
                 headers: {
                     authorization: `${tokenType} ${accessToken}`,
                 },
             })
-            .then(result => result.json())
+            .then(result => {
+                if (!result.ok) throw new Error('Invalid or expired token');
+                return result.json();
+            })
             .then(response => {
-                // 4. Extract data and update the HTML
+                // 5. Extract data and update the HTML
                 const { username, global_name, id, avatar } = response;
                 
                 document.getElementById('discord-username').innerText = username;
@@ -110,11 +126,18 @@
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('dashboard-content').classList.remove('hidden');
             })
-            .catch(console.error);
+            .catch(() => {
+                // Token was invalid/expired: clear it and send them to log in again
+                localStorage.removeItem('aika_access_token');
+                localStorage.removeItem('aika_token_type');
+                window.location.href = 'index.html';
+            });
         };
 
         function logout() {
-            // Clear the URL hash and go home
+            // Clear the saved session and go home
+            localStorage.removeItem('aika_access_token');
+            localStorage.removeItem('aika_token_type');
             window.history.replaceState(null, null, ' ');
             window.location.href = 'index.html';
         }
